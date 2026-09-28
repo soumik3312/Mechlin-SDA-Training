@@ -1,0 +1,122 @@
+classDiagram
+
+class Dashboard {
+    +render()
+    +updateMetrics()
+    +handleUserInteraction()
+}
+
+class MetricsCard {
+    +title
+    +value
+    +change
+    +render()
+}
+
+class ChartContainer {
+    +chart
+    +renderChart()
+    +updateChart()
+}
+
+class DataFetching {
+    +fetchData()
+    +handleLoading()
+    +handleError()
+}
+
+class WebSocketManager {
+    +connect()
+    +disconnect()
+    +reconnect()
+    +handleMessage()
+}
+
+class ApiService {
+    +getUsers()
+    +getRevenue()
+    +getOrders()
+    +handleError()
+}
+
+class WebSocketService {
+    +connect()
+    +disconnect()
+    +subscribe()
+    +unsubscribe()
+}
+
+class DataService {
+    +processData()
+    +transformData()
+}
+
+class CacheService {
+    +get()
+    +set()
+    +clear()
+}
+
+class User {
+    +id
+    +name
+    +email
+    +role
+}
+
+class Metric {
+    +id
+    +value
+    +date
+    +type
+}
+
+class Backend {
+    +processRequest()
+    +authenticate()
+    +validateRequest()
+}
+
+class Database {
+    +query()
+    +insert()
+    +update()
+}
+
+class Redis {
+    +get()
+    +set()
+    +invalidate()
+}
+
+class WebSocketServer {
+    +connect()
+    +broadcast()
+    +disconnect()
+}
+
+Dashboard --> MetricsCard
+Dashboard --> ChartContainer
+Dashboard --> DataFetching
+
+DataFetching --> ApiService
+DataFetching --> WebSocketManager
+
+WebSocketManager --> WebSocketService
+
+ApiService --> Backend
+Backend --> DataService
+Backend --> Database
+Backend --> Redis
+
+DataService --> CacheService
+DataService --> User
+DataService --> Metric
+
+CacheService --> Redis
+
+WebSocketService --> WebSocketServer
+WebSocketServer --> Backend
+
+ChartContainer --> Metric
+MetricsCard --> Metric
