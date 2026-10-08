@@ -1,0 +1,15 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 30
+      arrivalRate: 2
+      name: "Warm up"
+    - duration: 60
+      arrivalRate: 5
+      name: "Load test"
+
+scenarios:
+  - name: "Health endpoint"
+    flow:
+      - get:
+          url: "/health"

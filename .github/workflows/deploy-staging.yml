@@ -1,0 +1,70 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+env:
+  ENVIRONMENT: staging
+  NAMESPACE: sda-training
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: latest
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > "$RUNNER_TEMP/kubeconfig"
+          echo "KUBECONFIG=$RUNNER_TEMP/kubeconfig" >> "$GITHUB_ENV"
+
+      - name: Deploy to staging
+        run: |
+          kubectl apply -f k8s/
+
+      - name: Update image
+        run: |
+          kubectl set image deployment/sda-training-app \
+            app=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -n ${{ env.NAMESPACE }}
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/sda-training-app \
+            -n ${{ env.NAMESPACE }} \
+            --timeout=180s
+
+      - name: Run health checks
+        run: |
+          kubectl get pods -n ${{ env.NAMESPACE }}
+          kubectl get services -n ${{ env.NAMESPACE }}
+          kubectl get ingress -n ${{ env.NAMESPACE }}
+
+      - name: Run integration smoke test
+        run: |
+          kubectl port-forward \
+            service/sda-training-service \
+            3000:3000 \
+            -n ${{ env.NAMESPACE }} > /tmp/port-forward.log 2>&1 &
+
+          sleep 10
+
+          curl -f http://localhost:3000/health
