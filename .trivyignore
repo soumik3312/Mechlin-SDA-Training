@@ -1,0 +1,4 @@
+# CVE-2026-93687: braces <= 3.0.3
+# No patched version listed by the upstream advisory as of 2026-10-11.
+# Review and remove this exception when a fix becomes available.
+CVE-2026-93687
