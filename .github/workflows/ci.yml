@@ -1,76 +1,84 @@
+
 name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
-  # Code Quality and Testing
+  # Flutter Code Quality and Testing
   test:
     name: Test and Quality Checks
     runs-on: ubuntu-latest
-    
+
+    defaults:
+      run:
+        working-directory: week3/day20/sda_training_app
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          pub-cache: true
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Display Flutter version
+        run: flutter --version
 
-    - name: Run linting
-      run: npm run lint
+      - name: Install dependencies
+        run: flutter pub get
 
-    - name: Run tests
-      run: npm test
+      - name: Run static analysis
+        run: flutter analyze
 
-    - name: Run security audit
-      run: npm audit --audit-level moderate
+      - name: Run Flutter tests
+        run: flutter test
 
   # Documentation Check
   docs:
     name: Documentation Check
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Check README links
-      run: |
-        # Check for broken links in README
-        echo "Checking documentation links..."
+      - name: Check README links
+        run: |
+          echo "Checking documentation links..."
 
-    - name: Validate markdown
-      run: |
-        # Validate markdown syntax
-        echo "Validating markdown files..."
+      - name: Validate markdown
+        run: |
+          echo "Validating markdown files..."
 
   # Security Scan
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    
+
+    permissions:
+      contents: read
+      security-events: write
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
 
-    - name: Upload Trivy scan results
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: 'trivy-results.sarif'
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
