@@ -3,12 +3,14 @@
   final String name;
   final String email;
   final String role;
+  final String? avatarUrl;
 
   const AppUser({
     required this.id,
     required this.name,
     required this.email,
     this.role = 'user',
+    this.avatarUrl,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
@@ -17,6 +19,8 @@
       name: json['name']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
       role: json['role']?.toString() ?? 'user',
+      avatarUrl:
+          (json['avatarUrl'] ?? json['avatar_url'])?.toString(),
     );
   }
 
@@ -26,6 +30,7 @@
       'name': name,
       'email': email,
       'role': role,
+      'avatarUrl': avatarUrl,
     };
   }
 }
