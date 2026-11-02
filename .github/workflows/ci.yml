@@ -3,61 +3,79 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main, develop ]
+
   pull_request:
     branches: [ main, develop ]
 
 jobs:
-  # Code Quality and Testing
+
+  # Python AI/ML Testing and JavaScript Quality Checks
   test:
     name: Test and Quality Checks
     runs-on: ubuntu-latest
-    
+
+    defaults:
+      run:
+        working-directory: week4/day22
+
     steps:
+
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Setup Python
+      uses: actions/setup-python@v7
       with:
-        node-version: '18'
-        cache: 'npm'
+        python-version: '3.11'
+        cache: 'pip'
+        cache-dependency-path: week4/day22/requirements.txt
 
-    - name: Install dependencies
-      run: npm ci
+    - name: Setup Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: '22'
 
-    - name: Run linting
-      run: npm run lint
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
 
-    - name: Run tests
-      run: npm test
+    - name: Check Python syntax
+      run: python -m compileall -q ai tests
 
-    - name: Run security audit
-      run: npm audit --audit-level moderate
+    - name: Run Python tests
+      run: python -m pytest -v
+
+    - name: Check JavaScript syntax
+      run: node --check ai/web-integration.js
+
+    - name: Verify Python dependencies
+      run: python -m pip check
+
 
   # Documentation Check
   docs:
     name: Documentation Check
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Check README links
       run: |
-        # Check for broken links in README
         echo "Checking documentation links..."
 
     - name: Validate markdown
       run: |
-        # Validate markdown syntax
         echo "Validating markdown files..."
+
 
   # Security Scan
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
