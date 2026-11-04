@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        name="description"
+        content="A local AI web integration demo featuring conversational AI, content generation, recommendations, and usage analytics."
+    >
+    <meta name="theme-color" content="#f5f7fb">
+    <title>AI Web Integration Demo | Day 25</title>
+
+    <link
+        rel="stylesheet"
+        href="/assets/ai-web.css"
+    >
+
+    <script src="/assets/ai-chatbot.js" defer></script>
+    <script src="/assets/ai-content-generator.js" defer></script>
+    <script src="/assets/ai-recommendations.js" defer></script>
+    <script src="/assets/ai-analytics.js" defer></script>
+    <script src="/assets/app.js" defer></script>
+</head>
+
+<body>
+    <main class="ai-demo">
+        <header class="ai-demo__header">
+            <div>
+                <p class="ai-demo__eyebrow">Mechlin SDA · Week 4 · Day 25</p>
+                <h1>AI Web Integration</h1>
+                <p class="ai-demo__description">
+                    Explore a local AI-powered web application with persistent
+                    conversations, content generation, personalized learning
+                    recommendations, and real usage analytics.
+                </p>
+            </div>
+
+            <div
+                id="service-status"
+                class="ai-demo__service-status"
+                role="status"
+                aria-live="polite"
+                data-state="loading"
+            >
+                Checking AI service…
+            </div>
+        </header>
+
+        <div class="ai-demo__grid">
+            <section class="ai-demo__card">
+                <h2>AI Chatbot</h2>
+                <div id="chatbot-container"></div>
+            </section>
+
+            <section class="ai-demo__card">
+                <h2>AI Content Generator</h2>
+                <div id="content-generator-container"></div>
+            </section>
+
+            <section class="ai-demo__card ai-demo__card--wide">
+                <h2>AI Recommendations</h2>
+                <div id="recommendations-container"></div>
+            </section>
+
+            <section class="ai-demo__card ai-demo__card--wide">
+                <h2>AI Analytics</h2>
+                <div id="analytics-container"></div>
+            </section>
+        </div>
+
+        <footer class="ai-demo__footer">
+            <p>
+                Day 25 AI Web Integration · Flask · LangChain · Ollama · Mistral
+            </p>
+            <p>
+                This is a local development demo. Usage metrics and recommendation
+                feedback are stored in the configured local SQLite database.
+            </p>
+        </footer>
+    </main>
+</body>
+</html>
