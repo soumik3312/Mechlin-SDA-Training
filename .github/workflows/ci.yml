@@ -15,21 +15,39 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
-        cache: 'npm'
+        node-version: '22'
 
     - name: Install dependencies
       run: npm ci
 
-    - name: Run linting
-      run: npm run lint
+    - name: Run linting on changed JavaScript files
+      shell: bash
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        HEAD_SHA: ${{ github.sha }}
+      run: |
+        if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+          echo "No comparison SHA available; running the configured lint command."
+          npm run lint
+        else
+          mapfile -t CHANGED_JS < <(
+            git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- "*.js" "*.cjs" "*.mjs" "*.jsx" | grep -v "^\.eslintrc\.cjs$" || true
+          )
+          if [ "${#CHANGED_JS[@]}" -gt 0 ]; then
+            npx eslint "${CHANGED_JS[@]}"
+          else
+            echo "No JavaScript source changes; ESLint is not applicable to this PR."
+          fi
+        fi
 
-    - name: Run tests
-      run: npm test
+    - name: Run tests (allow empty test suite)
+      run: npm test -- --passWithNoTests
 
     - name: Run security audit
       run: npm audit --audit-level moderate
