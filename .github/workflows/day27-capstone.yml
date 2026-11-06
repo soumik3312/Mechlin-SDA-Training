@@ -1,0 +1,348 @@
+name: Day 27 Capstone CI-CD
+
+on:
+  push:
+    branches:
+      - feature/day27-capstone-project
+      - main
+    paths:
+      - "week4/day27/**"
+      - ".github/workflows/day27-capstone.yml"
+
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "week4/day27/**"
+      - ".github/workflows/day27-capstone.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: day27-capstone-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend Tests and Security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: week4/day27/backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: week4/day27/backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Audit all backend dependencies
+        run: npm audit
+
+      - name: Run backend regression tests
+        run: npm test
+
+      - name: Check JavaScript syntax
+        run: |
+          find src tests -type f -name "*.js" -print0 |
+            xargs -0 -r -n1 node --check
+
+  frontend:
+    name: Frontend TypeScript and Production Build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: week4/day27/frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: week4/day27/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Audit frontend dependencies
+        run: npm audit
+
+      - name: TypeScript validation
+        run: npm run typecheck
+
+      - name: Build production frontend
+        run: npm run build
+
+      - name: Verify production entry point
+        run: test -s dist/index.html
+
+  python-ai-regression:
+    name: Day 24-26 AI Regression Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: week4/day25/requirements.txt
+
+      - name: Install AI service dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r week4/day25/requirements.txt
+
+      - name: Check Python dependency consistency
+        run: python -m pip check
+
+      - name: Run Day 24, Day 25 and Day 26 regression tests
+        run: |
+          python -m pytest -q \
+            week4/day24/tests \
+            week4/day25/tests \
+            week4/day26/tests
+
+  devops-validation:
+    name: Docker and Kubernetes Validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Install YAML validator
+        run: python -m pip install PyYAML==6.0.3
+
+      - name: Validate Docker Compose configuration
+        run: |
+          docker compose \
+            --env-file week4/day27/devops/.env.example \
+            -f week4/day27/devops/docker-compose.yml \
+            config --quiet
+
+      - name: Validate Kubernetes YAML and resources
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          directory = Path("week4/day27/devops/k8s")
+
+          required = {
+              "namespace.yaml",
+              "configmap.yaml",
+              "backend-storage.yaml",
+              "backend.yaml",
+              "frontend.yaml",
+              "kustomization.yaml",
+          }
+
+          found = {path.name for path in directory.glob("*.yaml")}
+          missing = required - found
+
+          if missing:
+              raise SystemExit(f"Missing manifests: {sorted(missing)}")
+
+          documents = []
+
+          for path in sorted(directory.glob("*.yaml")):
+              with path.open(encoding="utf-8") as stream:
+                  parsed = list(yaml.safe_load_all(stream))
+
+              for document in parsed:
+                  if document is None:
+                      continue
+                  if not isinstance(document, dict):
+                      raise SystemExit(f"Invalid YAML document in {path}")
+                  documents.append(document)
+
+          kinds = [item.get("kind") for item in documents]
+
+          for required_kind in (
+              "Namespace",
+              "ConfigMap",
+              "PersistentVolumeClaim",
+              "Deployment",
+              "Service",
+          ):
+              if required_kind not in kinds:
+                  raise SystemExit(f"Missing Kubernetes kind: {required_kind}")
+
+          deployments = [
+              item for item in documents
+              if item.get("kind") == "Deployment"
+          ]
+
+          if len(deployments) != 2:
+              raise SystemExit("Expected exactly two Deployments.")
+
+          backend = next(
+              item for item in deployments
+              if item["metadata"]["name"] == "taskpilot-backend"
+          )
+
+          frontend = next(
+              item for item in deployments
+              if item["metadata"]["name"] == "taskpilot-frontend"
+          )
+
+          if backend["spec"]["replicas"] != 1:
+              raise SystemExit("Backend must remain at one replica with JSON storage.")
+
+          if frontend["spec"]["replicas"] != 1:
+              raise SystemExit("Unexpected frontend replica count.")
+
+          for deployment in (backend, frontend):
+              container = deployment["spec"]["template"]["spec"]["containers"][0]
+              if container["securityContext"].get("readOnlyRootFilesystem") is not True:
+                  raise SystemExit("A container must use a read-only root filesystem.")
+
+          kustomization_path = directory / "kustomization.yaml"
+          kustomization = yaml.safe_load(
+              kustomization_path.read_text(encoding="utf-8")
+          )
+
+          for resource in kustomization.get("resources", []):
+              if not (directory / resource).is_file():
+                  raise SystemExit(f"Kustomize resource not found: {resource}")
+
+          print(f"Parsed {len(documents)} Kubernetes resource documents.")
+          print("Required resource kinds: OK")
+          print("Replica and security checks: OK")
+          print("Kustomize resource references: OK")
+          PY
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v5.2.0
+        with:
+          version: latest
+
+      - name: Render Kubernetes Kustomize resources
+        run: |
+          kubectl kustomize week4/day27/devops/k8s \
+            > "$RUNNER_TEMP/taskpilot-rendered.yaml"
+
+      - name: Install kubeconform
+        run: |
+          curl -fsSL \
+            https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz \
+            -o "$RUNNER_TEMP/kubeconform.tar.gz"
+
+          mkdir -p "$RUNNER_TEMP/kubeconform"
+
+          tar -xzf "$RUNNER_TEMP/kubeconform.tar.gz" \
+            -C "$RUNNER_TEMP/kubeconform"
+
+          sudo install -m 0755 \
+            "$RUNNER_TEMP/kubeconform/kubeconform" \
+            /usr/local/bin/kubeconform
+
+      - name: Validate Kubernetes resource schemas
+        run: |
+          kubeconform \
+            -strict \
+            -summary \
+            "$RUNNER_TEMP/taskpilot-rendered.yaml"
+
+      - name: Build backend Docker image
+        run: |
+          docker build --pull \
+            -t taskpilot-backend:ci \
+            -f week4/day27/backend/Dockerfile \
+            week4/day27/backend
+
+      - name: Build frontend Docker image
+        run: |
+          docker build --pull \
+            -t taskpilot-frontend:ci \
+            -f week4/day27/frontend/Dockerfile \
+            week4/day27/frontend
+
+  publish-images:
+    name: Publish Images to GitHub Container Registry
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    needs:
+      - backend
+      - frontend
+      - python-ai-regression
+      - devops-validation
+
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Login to GitHub Container Registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$REGISTRY_TOKEN" |
+            docker login ghcr.io \
+              --username "$GITHUB_ACTOR" \
+              --password-stdin
+
+      - name: Build and publish backend image
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}-backend"
+
+          docker build --pull \
+            -f week4/day27/backend/Dockerfile \
+            -t "$IMAGE:$GITHUB_SHA" \
+            -t "$IMAGE:latest" \
+            week4/day27/backend
+
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$IMAGE:latest"
+
+      - name: Build and publish frontend image
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}-frontend"
+
+          docker build --pull \
+            -f week4/day27/frontend/Dockerfile \
+            -t "$IMAGE:$GITHUB_SHA" \
+            -t "$IMAGE:latest" \
+            week4/day27/frontend
+
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$IMAGE:latest"
